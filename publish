@@ -1,0 +1,38 @@
+#!/bin/sh -e
+#
+# TODO:
+#
+# * Make it generate a new version number.
+# * Set a tag in git.
+# * Generate a rockspec.
+# * Upload the tarball to github.
+# * Announce
+
+# version=$(git tag -l | tail -1)
+version=0.2.0
+
+name="colyseus-$version"
+src="$(pwd)"
+dest="$(pwd)/rockspecs"
+
+# cd $dest
+# rm -f "$name"
+# ln -sf "$src" "$name"
+
+echo "Creating $dest/$name.tar.gz"
+tar -czvpf "$name.tar.gz" \
+    --dereference \
+    --exclude "$name/.git*" \
+    --exclude "$name/*.o" \
+    --exclude "$name/*.so" \
+    --exclude "$name/colyseus.rockspec" \
+    --exclude "$name/rockspecs" \
+    --exclude "$name/server" \
+    --exclude "$name/$(basename $0)" \
+    "$name"
+
+echo "Creating $dest/$name-1.rockspec"
+
+cat "$src/colyseus.rockspec" | \
+    sed s/@VERSION@/$version/ > \
+    "$name-1.rockspec"

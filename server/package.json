@@ -1,0 +1,14 @@
+{
+  "name": "colyseus-lua-example",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node --harmony index.js"
+  },
+  "author": "Endel Dreyer",
+  "license": "MIT",
+  "dependencies": {
+    "colyseus": "^0.3.0",
+    "express": "^4.13.3"
+  }
+}
