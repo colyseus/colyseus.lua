@@ -9,7 +9,7 @@
 # * Announce
 
 # version=$(git tag -l | tail -1)
-version=0.2.0
+version=0.1.0
 
 name="colyseus-$version"
 src="$(pwd)"
@@ -20,18 +20,23 @@ dest="$(pwd)/rockspecs"
 # ln -sf "$src" "$name"
 
 echo "Creating $dest/$name.tar.gz"
-tar -czvpf "$name.tar.gz" \
+tar -czvpf "$dest/$name.tar.gz" \
     --dereference \
-    --exclude "$name/.git*" \
-    --exclude "$name/*.o" \
-    --exclude "$name/*.so" \
-    --exclude "$name/colyseus.rockspec" \
-    --exclude "$name/rockspecs" \
-    --exclude "$name/server" \
-    --exclude "$name/$(basename $0)" \
-    "$name"
+    --exclude ".git*" \
+    --exclude "*.o" \
+    --exclude "*.so" \
+    --exclude "colyseus.rockspec" \
+    --exclude "rockspecs" \
+    --exclude "server" \
+    --exclude "coronasdk-example" \
+    --exclude "example" \
+    --exclude "*~" \
+    --exclude ".DS_Store" \
+    --exclude "publish" \
+    "./"
 
-echo "Creating $dest/$name-1.rockspec"
+# $dest/
+echo "Creating $name-1.rockspec"
 
 cat "$src/colyseus.rockspec" | \
     sed s/@VERSION@/$version/ > \

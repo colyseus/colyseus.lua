@@ -1,9 +1,9 @@
 package = "colyseus"
-version = "@VERSION@-1"
+version = "0.1.0-1"
 
 source = {
   url = "git://github.com/gamestdio/colyseus.lua.git",
-  tag = "@VERSION@"
+  tag = "0.1.0"
 }
 
 description = {
