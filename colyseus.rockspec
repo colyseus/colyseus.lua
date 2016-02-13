@@ -2,7 +2,7 @@ package = "colyseus"
 version = "@VERSION@-1"
 
 source = {
-  url = "git://github.com/gamestdio/colyseus.lua.git",
+  url = "https://github.com/gamestdio/colyseus.lua.git",
   tag = "@VERSION@"
 }
 
@@ -17,8 +17,7 @@ dependencies = {
   "lua >= 5.1",
   "lua-websockets",
   "dromozoa-json",
-  "lua-events",
-  "lua-MessagePack"
+  "lua-messagepack"
 }
 
 build = {
