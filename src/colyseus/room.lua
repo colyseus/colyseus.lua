@@ -1,11 +1,14 @@
-local EventEmitter = require('events').EventEmitter
-local protocol = require('protocol')
+local EventEmitter = require('colyseus.events').EventEmitter
+local protocol = require('colyseus.protocol')
 
 Room = {}
 Room.__index = Room
 
 function Room.create(client, name)
-  local room = EventEmitter:new({ id = nil })
+  local room = EventEmitter:new({
+    id = nil,
+    state = {}
+  })
   setmetatable(room, Room)
   room:init(client, name)
   return room
@@ -14,7 +17,6 @@ end
 function Room:init(client, name)
   self.client = client
   self.name = name
-  self.state = {}
 
   -- remove all listeners on leave
   self:on('leave', self.off)
@@ -27,7 +29,7 @@ function Room:leave()
 end
 
 function Room:send (data)
-  self.client.send({ protocol.ROOM_DATA, self.id, data })
+  self.client:send({ protocol.ROOM_DATA, self.id, data })
 end
 
 return Room

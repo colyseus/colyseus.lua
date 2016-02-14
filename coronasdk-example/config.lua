@@ -1,8 +1,3 @@
-rocks_trees = {
-  -- Path to installed luafilesystem module
-  "./rocks"
-}
-
 application =
 {
 

@@ -1,43 +1,87 @@
-#!/bin/sh -e
-#
-# TODO:
-#
-# * Make it generate a new version number.
-# * Set a tag in git.
-# * Generate a rockspec.
-# * Upload the tarball to github.
-# * Announce
-
 # version=$(git tag -l | tail -1)
-version=0.1.0
 
-name="colyseus-$version"
-src="$(pwd)"
-dest="$(pwd)/rockspecs"
+version="0.1.3"
+rev="1" # rev="1"
 
-# cd $dest
-# rm -f "$name"
-# ln -sf "$src" "$name"
+name="colyseus-$version-$rev"
 
-echo "Creating $dest/$name.tar.gz"
-tar -czvpf "$dest/$name.tar.gz" \
+tmp="$TEMPDIR"
+if [ -z "$tmp" ]; then
+   tmp="$HOME"
+fi
+
+src="$(cd "$(dirname $0)" && pwd)"
+
+cd $tmp
+rm -f "$name"
+ln -sf "$src" "$name"
+
+echo "Creating $tmp/$name.src.rock"
+tar -czvpf "$name.src.rock" \
     --dereference \
-    --exclude ".git*" \
-    --exclude "*.o" \
-    --exclude "*.so" \
-    --exclude "colyseus.rockspec" \
-    --exclude "rockspecs" \
-    --exclude "server" \
-    --exclude "coronasdk-example" \
-    --exclude "example" \
-    --exclude "*~" \
-    --exclude ".DS_Store" \
-    --exclude "publish" \
-    "./"
+    --exclude "$name/.git*" \
+    --exclude "$name/*.o" \
+    --exclude "$name/*.so" \
+    --exclude "$name/colyseus.rockspec" \
+    --exclude "$name/rockspecs" \
+    --exclude "$name/server" \
+    --exclude "$name/coronasdk-example" \
+    --exclude "$name/example" \
+    --exclude "$name/*~" \
+    --exclude "$name/.DS_Store" \
+    --exclude "$name/publish" \
+    --exclude "$name/$(basename $0)" \
+    "$name"
 
-# $dest/
-echo "Creating $name-1.rockspec"
-
+echo "Creating $tmp/$name.rockspec"
 cat "$src/colyseus.rockspec" | \
-    sed s/@VERSION@/$version/ > \
-    "$name-1.rockspec"
+    sed \
+      -e s/@VERSION@/$version/ \
+      -e s/@REVISION@/$rev/ > \
+    "$name.rockspec"
+
+# #!/bin/sh -e
+# #
+# # TODO:
+# #
+# # * Make it generate a new version number.
+# # * Set a tag in git.
+# # * Generate a rockspec.
+# # * Upload the tarball to github.
+# # * Announce
+#
+# # version=$(git tag -l | tail -1)
+# version=0.1.2
+#
+# name="colyseus-$version"
+# src="$(pwd)"
+# dest="$(pwd)/rockspecs"
+#
+# # # cd $dest
+# # # rm -f "$name"
+# # # ln -sf "$src" "$name"
+# #
+# # echo "Creating $dest/$name.tar.gz"
+# # tar -czvpf "$dest/$name.tar.gz" \
+# #     --dereference \
+# #     --exclude ".git*" \
+# #     --exclude "*.o" \
+# #     --exclude "*.so" \
+# #     --exclude "colyseus.rockspec" \
+# #     --exclude "rockspecs" \
+# #     --exclude "server" \
+# #     --exclude "coronasdk-example" \
+# #     --exclude "example" \
+# #     --exclude "*~" \
+# #     --exclude ".DS_Store" \
+# #     --exclude "publish" \
+# #     "./"
+# #
+# # # $dest/
+# echo "Creating $name-1.rockspec"
+#
+# cat "$src/colyseus.rockspec" | \
+#     sed s/@VERSION@/$version/ > \
+#     "$name-1.rockspec"
+#
+# luarocks pack "$name-1.rockspec"

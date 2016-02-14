@@ -1,6 +1,6 @@
 {
     "contact": "endel@gamestd.io",
-    "url": "http://gamestd.io/colyseus",
-    "pluginName": "colyseus",
+    "url": "https://github.com/gamestdio/colyseus",
+    "pluginName": "plugin.colyseus",
     "publisherId": "io.gamestd"
 }

@@ -1,137 +1,143 @@
-local ev = require('ev')
-local websocket = require('websocket.client')
+local WebSocket = require('dmc_corona.dmc_websockets')
+
+local protocol = require('colyseus.protocol')
+local room = require('colyseus.room')
+local EventEmitter = require('colyseus.events').EventEmitter
+
 local msgpack = require('MessagePack')
-local protocol = require('protocol')
-local Room = require('room')
+local json = require('dromozoa.json.pure')
+local patch = require('dromozoa.json.patch')
 
 Colyseus = {}
 Colyseus.__index = Colyseus
 
 function Colyseus.connect (endpoint)
-  local instance = {}
+  local instance = EventEmitter:new({
+    id = nil ,
+    roomStates = {}, -- object
+    rooms = {}, -- object
+    _enqueuedCalls = {}, -- array
+  })
   setmetatable(instance, Colyseus)
   instance:init(endpoint)
   return instance
 end
 
 function Colyseus:init(endpoint)
-  self.roomStates = {} -- object
-  self.rooms = {} -- object
-  self._enqueuedCalls = {} -- array
+  self.ws = WebSocket({ uri = endpoint })
+  self.ws:addEventListener(self.ws.EVENT, function(event)
+    local evt_type = event.type
 
-  self.ws = websocket.ev()
+    if evt_type == self.ws.ONOPEN then
+      for i,cmd in ipairs(self._enqueuedCalls) do
+        local method = self[ cmd[1] ]
+        local arguments = cmd[2]
+        method(self, unpack(arguments))
+      end
 
-  self.ws:on_open(function()
-    self:on_open()
- end)
+    elseif evt_type == self.ws.ONMESSAGE then
+      self:on_message(event.message.data)
 
-  self.ws:connect(endpoint, 'echo')
+    elseif evt_type == self.ws.ONCLOSE then
+      self:emit('close', event)
 
-  self.ws:on_message(function(ws, msg)
-    self:on_message(ws, msg)
+    elseif evt_type == self.ws.ONERROR then
+      self:emit('error', event)
+
+    end
   end)
-
-  local i = 0
-
-  ev.Timer.new(function()
-    i = i + 1
-    -- self.ws:send('hello '..i)
-  end,1,1):start(ev.Loop.default)
-
-  ev.Loop.default:loop()
 end
 
-function Colyseus:on_open()
-  print("Successfully connected! Enqueued calls:")
-  print(self._enqueuedCalls)
-  -- if self._enqueuedCalls.length > 0 then {
-  --   for (var i=0; i<self._enqueuedCalls.length; i++) {
-  --     let [ method, args ] = self._enqueuedCalls[i]
-  --     self[ method ].apply(self, args)
-  --   }
-  -- }
+function Colyseus:close()
+  self.ws:close()
 end
 
 function Colyseus:send(data)
-  return self.ws:send( msgpack.pack(data) )
+  self.ws:send( msgpack.pack(data), {
+    type = WebSocket.BINARY
+  } )
 end
 
-function Colyseus:join (roomName, options)
+function Colyseus:join(...)
+  local args = {...}
+
+  local roomName = args[1]
+  local options = args[2]
+
   if not self.rooms[ roomName ] then
-    self.rooms[ roomName ] = Room.create(self, roomName)
+    self.rooms[ roomName ] = room.create(self, roomName)
   end
 
-  if self.ws.readyState == WebSocket.OPEN then
-    self.send({ protocol.JOIN_ROOM, roomName, options or {} })
+  if self.ws.readyState == WebSocket.ESTABLISHED then -- same as WebSocket.OPEN in JavaScript
+    self:send({ protocol.JOIN_ROOM, roomName, options or {} })
 
   else
     -- WebSocket not connected.
     -- Enqueue it to be called when readyState == OPEN
-    self._enqueuedCalls.push({'join', arguments})
+    table.insert(self._enqueuedCalls, {'join', args})
   end
 
   return self.rooms[ roomName ]
 end
 
-function Colyseus:on_message(ws, msg)
+function Colyseus:on_message(msg)
   local message = msgpack.unpack( msg )
 
-  if type(message[0]) == "number" then
-    local roomId = message[1]
+  if type(message[1]) == "number" then
+    local roomId = message[2]
 
-    if message[0] == protocol.USER_ID then
-      self.id = message[1]
-
-      if self.listeners['onopen'] then
-        self.listeners['onopen'].apply(null)
-      end
+    if message[1] == protocol.USER_ID then
+      self.id = message[2]
+      self:emit('open')
       return true
 
-    elseif (message[0] == protocol.JOIN_ROOM) then
+    elseif (message[1] == protocol.JOIN_ROOM) then
       -- joining room from room name:
       -- when first room message is received, keep only roomId association on `rooms` object
-      if self.rooms[ message[2] ] then
-        self.rooms[ roomId ] = self.rooms[ message[2] ]
-        delete self.rooms[ message[2] ]
+      if self.rooms[ message[3] ] then
+        self.rooms[ roomId ] = self.rooms[ message[3] ]
+        self.rooms[ message[3] ] = nil
+        -- delete self.rooms[ message[3] ]
+
       end
       self.rooms[ roomId ].id = roomId
-      self.rooms[ roomId ].emit('join')
+      self.rooms[ roomId ]:emit('join')
       return true
 
-    elseif (message[0] == protocol.JOIN_ERROR) then
-      self.rooms[ roomId ].emit('error', message[2])
-      delete self.rooms[ roomId ]
+    elseif (message[1] == protocol.JOIN_ERROR) then
+      self.rooms[ roomId ]:emit('error', message[3])
+      table.remove(self.rooms, roomId)
+      -- delete self.rooms[ roomId ]
       return true
 
-    elseif (message[0] == protocol.LEAVE_ROOM) then
-      self.rooms[ roomId ].emit('leave')
+    elseif (message[1] == protocol.LEAVE_ROOM) then
+      self.rooms[ roomId ]:emit('leave')
       return true
 
-    elseif (message[0] == protocol.ROOM_STATE) then
-      let roomState = message[2]
+    elseif (message[1] == protocol.ROOM_STATE) then
+      local roomState = message[3]
 
       self.rooms[ roomId ].state = roomState
-      self.rooms[ roomId ].emit('update', roomState)
+      self.rooms[ roomId ]:emit('update', roomState)
 
       self.roomStates[ roomId ] = roomState
       return true
 
-    elseif (message[0] == protocol.ROOM_STATE_PATCH) then
-      self.rooms[ roomId ].emit('patch', message[2])
-      jsonpatch.apply(self.roomStates[ roomId ], message[2])
-      self.rooms[ roomId ].emit('update', self.roomStates[ roomId ], message[2])
+    elseif (message[1] == protocol.ROOM_STATE_PATCH) then
+      self.rooms[ roomId ]:emit('patch', message[3])
+      patch(self.roomStates[ roomId ], message[3])
+      self.rooms[ roomId ]:emit('update', self.roomStates[ roomId ], message[3])
 
       return true
 
-    elseif (message[0] == protocol.ROOM_DATA) then
-      self.rooms[ roomId ].emit('data', message[2])
-      message = [ message[2] ]
+    elseif (message[1] == protocol.ROOM_DATA) then
+      self.rooms[ roomId ]:emit('data', message[3])
+      message = { message[3] }
     end
 
   end
 
-  -- if (self.listeners['onmessage']) self.listeners['onmessage'].apply(null, message)
+  self:emit('message', message)
 end
-
 
 return Colyseus
