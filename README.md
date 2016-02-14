@@ -63,7 +63,7 @@ Add this little piece of code at the very top of your `main.lua` file:
 
 ```lua
 -- Integration with luarocks
-package.path = string.gsub(system.pathForFile('main.lua'), "main.lua", 'luarocks/share/lua/5.2/?.lua') .. ';' .. package.path
+package.path = string.gsub(system.pathForFile('luarocks/bin/luarocks', system.ResourceDirectory), 'bin/luarocks', '') .. 'share/lua/5.2/?.lua' .. ';' .. package.path
 require("luarocks.loader")
 ```
 

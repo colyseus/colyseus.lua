@@ -3,7 +3,7 @@
 -- main.lua
 --
 -----------------------------------------------------------------------------------------
-package.path = string.gsub(system.pathForFile('main.lua'), "main.lua", 'luarocks/share/lua/5.2/?.lua') .. ';' .. package.path
+package.path = string.gsub(system.pathForFile('luarocks/bin/luarocks', system.ResourceDirectory), 'bin/luarocks', '') .. 'share/lua/5.2/?.lua' .. ';' .. package.path
 require("luarocks.loader")
 
 local widget = require('widget')
@@ -18,7 +18,7 @@ local messageBox = native.newTextBox(  display.contentWidth / 2, display.content
 messageBox.isEditable = false
 
 -- instantiate colyseus client
-local client = colyseus.connect('ws://localhost:2657')
+local client = colyseus.connect('ws://colyseus-react-example.herokuapp.com/')
 
 -- join chat room
 local room = client:join("chat")
