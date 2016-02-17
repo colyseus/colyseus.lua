@@ -1,14 +1,17 @@
 --====================================================================--
--- dmc_corona/dmc_websockets/exception.lua
+-- dmc_lua/json.lua
+--
+-- consistent method which which to load json on various systems
 --
 -- Documentation: http://docs.davidmccuskey.com/
 --====================================================================--
+
 
 --[[
 
 The MIT License (MIT)
 
-Copyright (C) 2014-2015 David McCuskey. All Rights Reserved.
+Copyright (c) 2014-2015 David McCuskey
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,22 +36,13 @@ SOFTWARE.
 
 
 --====================================================================--
---== DMC Corona Library : WebSockets Exception
+--== DMC Lua Library: JSON Shim
 --====================================================================--
 
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "0.3.0"
-
-
-
---====================================================================--
---== Imports
-
-
-local Error = require 'lib.dmc_lua.lua_error'
-local Objects = require 'lib.dmc_lua.lua_objects'
+local VERSION = "0.2.0"
 
 
 
@@ -56,45 +50,16 @@ local Objects = require 'lib.dmc_lua.lua_objects'
 --== Setup, Constants
 
 
-local assert = assert
+-- these are some popular json modules
+local JSON_LIBS = { 'dkjson', 'cjson', 'json' }
 
+local has_json, json
 
-
---====================================================================--
---== Protocol Error Class
---====================================================================--
-
-
-local ProtocolError = newClass( Error, { name="Protocol Error" } )
-
--- params:
--- code
--- reason
--- message
---
-function ProtocolError:__new__( params )
-	-- print( "ProtocolError:__init__" )
-	params = params or {}
-	self:superCall( '__new__', params.message, params )
-	--==--
-
-	if self.is_class then return end
-
-	assert( params.code, "ProtocolError: missing protocol code" )
-
-	self.code = params.code
-	self.reason = params.reason or ""
-
+for _, name in ipairs( JSON_LIBS ) do
+	has_json, json = pcall( require, name )
+	if has_json then break end
 end
 
+assert( has_json, "json module not found" )
 
-
-
---====================================================================--
---== Exception Facade
---====================================================================--
-
-
-return {
-	ProtocolError=ProtocolError
-}
+return json

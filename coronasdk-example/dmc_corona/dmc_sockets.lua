@@ -1,16 +1,14 @@
 --====================================================================--
--- dmc_sockets.lua
+-- dmc_corona/dmc_sockets.lua
 --
---
--- by David McCuskey
--- Documentation: http://docs.davidmccuskey.com/display/docs/dmc_sockets.lua
+-- Documentation: http://docs.davidmccuskey.com/
 --====================================================================--
 
 --[[
 
 The MIT License (MIT)
 
-Copyright (c) 2014 David McCuskey
+Copyright (c) 2014-2015 David McCuskey
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,22 +33,25 @@ SOFTWARE.
 
 
 --====================================================================--
--- DMC Corona Library : DMC Sockets
+--== DMC Corona Library : DMC Sockets
 --====================================================================--
+
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "0.1.0"
+local VERSION = "0.3.0"
 
 
 
 --====================================================================--
--- DMC Corona Library Config
+--== DMC Corona Library Config
 --====================================================================--
 
 
+
 --====================================================================--
--- Support Functions
+--== Support Functions
+
 
 local Utils = {} -- make copying from dmc_utils easier
 
@@ -80,32 +81,35 @@ function Utils.extend( fromTable, toTable )
 end
 
 
+
 --====================================================================--
--- Configuration
+--== Configuration
 
-local dmc_lib_data, dmc_lib_info
 
--- boot dmc_library with boot script or
+local dmc_lib_data
+
+-- boot dmc_corona with boot script or
 -- setup basic defaults if it doesn't exist
 --
-if false == pcall( function() require( "dmc_corona_boot" ) end ) then
+if false == pcall( function() require( 'dmc_corona_boot' ) end ) then
 	_G.__dmc_corona = {
 		dmc_corona={},
 	}
 end
 
 dmc_lib_data = _G.__dmc_corona
-dmc_lib_info = dmc_lib_data.dmc_library
 
 
 
 --====================================================================--
--- DMC Sockets
+--== DMC Sockets
 --====================================================================--
 
 
+
 --====================================================================--
--- Configuration
+--== Configuration
+
 
 dmc_lib_data.dmc_sockets = dmc_lib_data.dmc_sockets or {}
 
@@ -118,40 +122,48 @@ local DMC_SOCKETS_DEFAULTS = {
 local dmc_sockets_data = Utils.extend( dmc_lib_data.dmc_sockets, DMC_SOCKETS_DEFAULTS )
 
 
+
 --====================================================================--
--- Imports
+--== Imports
+
 
 local Objects = require 'lua_objects'
+local socket = require 'socket'
 local Utils = require 'lua_utils'
 
-local socket = require 'socket'
+local TCPSocket = require 'dmc_sockets.tcp'
+local ATCPSocket = require 'dmc_sockets.async_tcp'
 
-local tcp_socket = require 'dmc_sockets.tcp'
-local atcp_socket = require 'dmc_sockets.async_tcp'
 
 
 --====================================================================--
--- Setup, Constants
+--== Setup, Constants
 
--- setup some aliases to make code cleaner
-local inheritsFrom = Objects.inheritsFrom
+
 local ObjectBase = Objects.ObjectBase
+
+local ipairs = ipairs
+local mfloor = math.floor
+local sselect = socket.select
+local tinsert = table.insert
+local tonumber = tonumber
+local tostring = tostring
+local type = type
 
 local Singleton = nil
 
 
 
 --====================================================================--
--- Sockets Class
+--== Sockets Class
 --====================================================================--
 
 
-local Sockets = inheritsFrom( ObjectBase )
-Sockets.NAME = "Sockets Instance"
-
-Sockets.VERSION = VERSION
+local Sockets = newClass( ObjectBase, { name="DMC Socket" } )
 
 --== Class Constants
+
+Sockets.__version = VERSION
 
 Sockets.NO_BLOCK = 0
 Sockets.TCP = 'tcp'
@@ -159,20 +171,20 @@ Sockets.ATCP = 'atcp'
 
 -- throttle socket checks, milliseconds delay
 Sockets.OFF = 0
-Sockets.LOW = math.floor( 1000/30 )  -- ie, 30 FPS
-Sockets.MEDIUM = math.floor( 1000/15 )  -- ie, 15 FPS
-Sockets.HIGH = math.floor( 1000/1 )  -- ie, 1 FPS
+Sockets.LOW = mfloor( 1000/30 )  -- ie, 30 FPS
+Sockets.MEDIUM = mfloor( 1000/15 )  -- ie, 15 FPS
+Sockets.HIGH = mfloor( 1000/1 )  -- ie, 1 FPS
 
 Sockets.DEFAULT = Sockets.MEDIUM
 
 
---====================================================================--
---== Start: Setup DMC Objects
+--======================================================--
+--== Start: Setup Lua Objects
 
-function Sockets:_init( params )
-	-- print( "Sockets:_init" )
+function Sockets:__init__( params )
+	-- print( "Sockets:__init__" )
 	params = params or {}
-	self:superCall( "_init", params )
+	self:superCall( '__init__', params )
 	--==--
 
 	--== Create Properties ==--
@@ -192,20 +204,20 @@ function Sockets:_init( params )
 	-- none
 
 end
-function Sockets:_undoInit()
-	-- print( "Sockets:_undoInit" )
+function Sockets:__undoInit__()
+	-- print( "Sockets:__undoInit__" )
 
 	self._sockets = nil
 	self._raw_socks = nil
 	self._raw_socks_list = nil
 
 	--==--
-	self:superCall( "_undoInit" )
+	self:superCall( '__undoInit__' )
 end
 
-function Sockets:_initComplete()
-	-- print( "Sockets:_initComplete" )
-	self:superCall( "_initComplete" )
+function Sockets:__initComplete__()
+	-- print( "Sockets:__initComplete__" )
+	self:superCall( '__initComplete__' )
 	--==--
 
 	-- initialize using setters
@@ -219,21 +231,23 @@ function Sockets:_initComplete()
 	end
 
 end
-function Sockets:_undoInitComplete()
-	-- print( "Sockets:_undoInitComplete" )
+function Sockets:__undoInitComplete__()
+	-- print( "Sockets:__undoInitComplete__" )
 
 	self:_removeSockets()
 
 	--==--
-	self:superCall( "_undoInitComplete" )
+	self:superCall( '__undoInitComplete__' )
 end
 
---== END: Setup DMC Objects
+-- END: Setup Lua Objects
 --====================================================================--
+
 
 
 --====================================================================--
 --== Public Methods
+
 
 function Sockets.__setters:throttle( value )
 	-- print( 'Sockets.__setters:throttle', value )
@@ -290,23 +304,27 @@ function Sockets:create( s_type, params )
 	--==--
 
 	if s_type == Sockets.TCP then
-		return tcp_socket:new( { master=self } )
+		params.master = self
+		return TCPSocket:new( params )
 
 	elseif s_type == Sockets.ATCP then
-		return atcp_socket:new( { master=self } )
+		params.master = self
+		return ATCPSocket:new( params )
 
 	elseif s_type == Sockets.UDP then
-		error( "UDP is not yet available" )
+		error( "Sockets:create, UDP is not yet available" )
 
 	else
-		error( "Uknown socket type: %s" .. tostring( s_type ) )
+		error( "Sockets:create, Unknown socket type: " .. tostring( s_type ) )
 	end
 
 end
 
 
+
 --====================================================================--
 --== Private Methods
+
 
 -- getter/setter: activate enterFrame for socket check
 --
@@ -392,7 +410,7 @@ function Sockets:_addSocket( sock )
 	self._raw_socks[ key ] = sock
 
 	-- save raw socket in list
-	table.insert( self._raw_socks_list, raw_sock )
+	tinsert( self._raw_socks_list, raw_sock )
 
 	if #self._raw_socks_list then
 		self.check_is_active = true
@@ -425,7 +443,7 @@ end
 function Sockets:_checkConnections()
 	-- print( "Sockets:_checkConnections" )
 
-	local s_read, s_write, err = socket.select( self._check_read, self._check_write, Sockets.NO_BLOCK )
+	local s_read, s_write, err = sselect( self._check_read, self._check_write, Sockets.NO_BLOCK )
 
 	if err ~= nil then return end
 
@@ -447,8 +465,10 @@ function Sockets:_checkConnections()
 end
 
 
+
 --====================================================================--
 --== Event Handlers
+
 
 function Sockets:_createSocketCheckHandler( value )
 	-- print("Sockets:_createSocketCheckHandler", value )
@@ -471,6 +491,6 @@ end
 --====================================================================--
 
 
-local Singleton = Sockets:new()
+Singleton = Sockets:new()
 
 return Singleton

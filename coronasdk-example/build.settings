@@ -12,6 +12,10 @@ settings =
       publisherId = "com.coronalabs",
       supportedPlatforms = { android=true, iphone=true, osx=true, ["win32-sim"]=true },
     },
+    ["plugin.bit"] =
+    {
+      publisherId = "com.coronalabs"
+    },
     -- ["plugin.colyseus"] =
     -- {
     --   publisherId = "io.gamestd",

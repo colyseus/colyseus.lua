@@ -1,5 +1,5 @@
 --====================================================================--
--- dmc_corona/dmc_websockets/exception.lua
+-- dmc_lua/lua_megaphone.lua
 --
 -- Documentation: http://docs.davidmccuskey.com/
 --====================================================================--
@@ -8,7 +8,7 @@
 
 The MIT License (MIT)
 
-Copyright (C) 2014-2015 David McCuskey. All Rights Reserved.
+Copyright (c) 2013-2015 David McCuskey
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,13 +33,13 @@ SOFTWARE.
 
 
 --====================================================================--
---== DMC Corona Library : WebSockets Exception
+--== DMC Lua Library : Lua Megaphone
 --====================================================================--
 
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "0.3.0"
+local VERSION = "1.2.0"
 
 
 
@@ -47,8 +47,7 @@ local VERSION = "0.3.0"
 --== Imports
 
 
-local Error = require 'lib.dmc_lua.lua_error'
-local Objects = require 'lib.dmc_lua.lua_objects'
+local Objects = require 'lua_objects'
 
 
 
@@ -56,45 +55,72 @@ local Objects = require 'lib.dmc_lua.lua_objects'
 --== Setup, Constants
 
 
-local assert = assert
+local ObjectBase = Objects.ObjectBase
+
+local singleton = nil
 
 
 
 --====================================================================--
---== Protocol Error Class
+--== Megaphone Class
 --====================================================================--
 
 
-local ProtocolError = newClass( Error, { name="Protocol Error" } )
+local Megaphone = newClass( ObjectBase, { name="Lua Megaphone" } )
 
--- params:
--- code
--- reason
--- message
---
-function ProtocolError:__new__( params )
-	-- print( "ProtocolError:__init__" )
+--== Event Constants ==--
+
+Megaphone.EVENT = 'megaphone_event'
+
+
+--======================================================--
+-- Start: Setup Lua Objects
+
+--[[
+function Megaphone:__new__( ... )
+	-- print( "Megaphone:__new__" )
+end
+--]]
+
+--[[
+function Megaphone:__destroy__( ... )
+	-- print( "Megaphone:__destroy__" )
+	EventsMix.__undoInit__( self )
+end
+--]]
+
+-- END: Setup Lua Objects
+--======================================================--
+
+
+
+--====================================================================--
+--== Public Methods
+
+
+function Megaphone:say( message, data, params )
+	-- print( "Megaphone:say ", message )
 	params = params or {}
-	self:superCall( '__new__', params.message, params )
+	assert( type(message)=='string', "Megaphone:say, arg 'message' must be a string" )
+	assert( params==nil or type(params)=='table', "Megaphone:say, arg 'params' must be a table" )
 	--==--
-
-	if self.is_class then return end
-
-	assert( params.code, "ProtocolError: missing protocol code" )
-
-	self.code = params.code
-	self.reason = params.reason or ""
-
+	self:dispatchEvent( message, data, params )
+end
+function Megaphone:listen( listener )
+	-- print( "Megaphone:listen " )
+	assert( type(listener)=='function', "Megaphone:listen, arg 'listener' must be a function" )
+	--==--
+	self:addEventListener( Megaphone.EVENT, listener )
+end
+function Megaphone:ignore( listener )
+	-- print( "Megaphone:ignore " )
+	assert( type(listener)=='function', "Megaphone:ignore, arg 'listener' must be a function" )
+	--==--
+	self:removeEventListener( Megaphone.EVENT, listener )
 end
 
 
 
+singleton = Megaphone:new()
 
---====================================================================--
---== Exception Facade
---====================================================================--
-
-
-return {
-	ProtocolError=ProtocolError
-}
+return singleton

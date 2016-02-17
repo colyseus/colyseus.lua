@@ -5,6 +5,11 @@ Minimalistic MMO Game Server.
 
 ## Usage
 
+There's a sample project on
+[coronasdk-example](https://github.com/gamestdio/colyseus.lua/tree/master/coronasdk-example),
+which connects to a simple [chat application
+demo](https://github.com/endel/colyseus-react-example).
+
 ```lua
 local colyseus = require('colyseus')
 
@@ -54,10 +59,11 @@ package manager for the LUA programming language.
 - Install [colyseus](https://luarocks.org/modules/endel/colyseus) package inside
   your source directory. (`luarocks install colyseus --tree=src/luarocks`)
 - Download and copy
-  [dmc_corona](https://github.com/dmccuskey/DMC-Corona-Library/) inside your
+  [dmc_corona](https://github.com/dmccuskey/dmc-websockets) into your
   source directory.
-- Add [openssl](https://docs.coronalabs.com/plugin/openssl/) plugin to your
-  project. (inside `build.settings` file, plugins section)
+- Add [openssl](https://docs.coronalabs.com/plugin/openssl/) and
+  [bit](https://docs.coronalabs.com/plugin/bit/) plugins to your project.
+  (inside `build.settings` file, plugins section)
 
 Add this little piece of code at the very top of your `main.lua` file:
 
@@ -81,7 +87,7 @@ Finally, your source directory should look like this: (only relevant files)
 
 **Dependencies**
 
-- [DMC-Corona-Library](https://github.com/dmccuskey/DMC-Corona-Library)
+- [dmc-websockets](https://github.com/dmccuskey/dmc-websockets)
 - [dromozoa-json](https://github.com/dromozoa/dromozoa-json)
 - [lua-messagepack](https://github.com/fperrad/lua-MessagePack)
 

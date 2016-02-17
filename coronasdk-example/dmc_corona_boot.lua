@@ -1,59 +1,75 @@
 --====================================================================--
--- dmc_library_boot.lua
+-- dmc_corona_boot.lua
 --
---  utility to read in dmc_library configuration file
+--  utility to read in configuration file for dmc-corona-library
 --
--- by David McCuskey
 -- Documentation:
 --====================================================================--
 
 --[[
 
-Copyright (C) 2013-2014 David McCuskey. All Rights Reserved.
+The MIT License (MIT)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in the
-Software without restriction, including without limitation the rights to use, copy,
-modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-and to permit persons to whom the Software is furnished to do so, subject to the
-following conditions:
+Copyright (C) 2013-2015 David McCuskey. All Rights Reserved.
 
-The above copyright notice and this permission notice shall be included in all copies
-or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 --]]
 
 
 
 --====================================================================--
--- DMC Corona Library : DMC Corona Boot
+--== DMC Corona Library : DMC Corona Boot
 --====================================================================--
 
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "1.3.0"
-
-
---====================================================================--
--- Imports
-
-local ok, json = pcall( require, 'json' )
-if not ok then json = nil end
+local VERSION = "1.5.2"
 
 
 
 --====================================================================--
--- Setup Support
---====================================================================--
+--== Imports
 
+
+local has_json, json = pcall( require, 'json' )
+if not has_json then json = nil end
+
+
+
+--====================================================================--
+--== Setup, Constants
+
+
+local sfind = string.find
+local sgmatch = string.gmatch 
+local sgsub = string.gsub
+local tconcat = table.concat
+local tinsert = table.insert
+local tremove = table.remove
+
+
+
+--====================================================================--
+--== Setup Support
+--====================================================================--
 
 
 local Utils = {} -- make copying from dmc_utils easier
@@ -89,7 +105,7 @@ function Utils.split( str, sep )
 	if sep == nil then
 		sep = "%s"
 	end
-	t={} ; i=1
+	local t, i = {}, 1
 	for str in string.gmatch( str, "([^"..sep.."]+)") do
 		t[i] = str
 		i = i + 1
@@ -98,9 +114,25 @@ function Utils.split( str, sep )
 end
 
 
-local platform_name = system.getInfo( 'platformName' )
-function Utils.getSystemSeparator()
-	if platform_name == 'Win' then
+function Utils.propertyIn( list, property )
+	for i = 1, #list do
+		if list[i] == property then return true end
+	end
+	return false
+end
+
+
+function Utils.guessPathPlatform( path )
+	-- print( "Utils.guessPathPlatform", path )
+	local win, ios = 0, 0
+	for match in sgmatch( path, '\\' ) do
+		win=win+1
+	end
+	for match in sgmatch( path, '/' ) do
+		ios=ios+1
+	end
+
+	if win>ios then
 		return '\\'
 	else
 		return '/'
@@ -108,81 +140,99 @@ function Utils.getSystemSeparator()
 end
 
 
+-- takes System Path to Lua module dot
+-- eg, lib.dmc_lua.lua_object >> lib/dmc_lua/lua_object
+--
 function Utils.sysPathToRequirePath( sys_path )
-	-- print( "sysPathToRequirePath", sys_path)
-	local sys_tbl = Utils.split( sys_path, Utils.getSystemSeparator() )
+	-- print( "sysPathToRequirePath", sys_path )
+	local sys_tbl = Utils.split( sys_path, Utils.guessPathPlatform( sys_path ) )
 	-- clean off any dots
 	for i=#sys_tbl, 1, -1 do
 		if sys_tbl[i]=='.' then
-			table.remove( sys_tbl, i )
+			tremove( sys_tbl, i )
 		end
 	end
-	return table.concat( sys_tbl, '.' )
+	return tconcat( sys_tbl, '.' )
 end
-
-
 
 
 
 --== Start lua_files copies ==--
 
+-- version 0.2.0
+
 local File = {}
+
+
+--======================================================--
+-- fileExists()
+
+function File.fileExists( file_path )
+	-- print( "File.fileExists", file_path )
+	local has_file, _ = pcall( function()
+		local result = assert( io.open( file_path, 'r' ) )
+		io.close( result )
+	end)
+	return has_file
+end
+
 
 --====================================================================--
 --== readFile() ==--
 
-function File.readFile( file_path, options )
+function File._openCloseFile( file_path, read_f, options )
 	-- print( "File.readFile", file_path )
 	assert( type(file_path)=='string', "file path is not string" )
-	assert( #file_path>0 )
-	options = options or {}
-	options.lines = options.lines == nil and true or options.lines
+	assert( type(read_f)=='function', "read function is not function" )
 	--==--
 
-	local fh, contents
-
-	fh = assert( io.open(file_path, 'r') )
-
-	if options.lines == false then
-		-- read contents in one big string
-		contents = fh:read( '*all' )
-
-	else
-		-- read all contents of file into a table
-		contents = {}
-		for line in fh:lines() do
-			table.insert( contents, line )
-		end
-
-	end
-
+	local fh = assert( io.open(file_path, 'r') )
+	local contents = read_f( fh )
 	io.close( fh )
 
 	return contents
 end
 
+
+function File._readLines( fh )
+	local contents = {}
+	for line in fh:lines() do
+		tinsert( contents, line )
+	end
+	return contents
+end
+
 function File.readFileLines( file_path, options )
-	options = options or {}
-	options.lines = true
-	return File.readFile( file_path, options )
+	return File._openCloseFile( file_path, File._readLines, options )
+end
+
+
+function File._readContents( fh )
+	return fh:read( '*all' )
 end
 
 function File.readFileContents( file_path, options )
+	return File._openCloseFile( file_path, File._readContents, options )
+end
+
+
+function File.readFile( file_path, options )
 	options = options or {}
-	options.lines = false
-	return File.readFile( file_path, options )
+	options.lines = options.lines == nil and true or options.lines
+	--==--
+	if options.lines == true then
+		return File.readFileLines( file_path, options )
+	else
+		return File.readFileContents( file_path, options )
+	end
 end
 
 
 --====================================================================--
 --== read/write JSONFile() ==--
 
-function File.convertLuaToJson( lua_data )
-	assert( type(lua_data)=='table' )
-	--==--
-	return json.encode( lua_data )
-end
 function File.convertJsonToLua( json_str )
+	assert( json ~= nil, 'JSON library not loaded' )
 	assert( type(json_str)=='string' )
 	assert( #json_str > 0 )
 	--==--
@@ -195,41 +245,50 @@ end
 --====================================================================--
 --== readConfigFile() ==--
 
+-- types of possible keys for a line
+local KEY_TYPES = { 'boolean', 'bool', 'file', 'integer', 'int', 'json', 'path', 'string', 'str' }
+
 function File.getLineType( line )
 	-- print( "File.getLineType", #line, line )
 	assert( type(line)=='string' )
 	--==--
 	local is_section, is_key = false, false
 	if #line > 0 then
-		is_section = ( string.find( line, '%[%w', 1, false ) == 1 )
-		is_key = ( string.find( line, '%w', 1, false ) == 1 )
+		is_section = ( string.find( line, '%[%u', 1, false ) == 1 )
+		is_key = ( string.find( line, '%u', 1, false ) == 1 )
 	end
 	return is_section, is_key
 end
 
 function File.processSectionLine( line )
 	-- print( "File.processSectionLine", line )
-	assert( type(line)=='string' )
+	assert( type(line)=='string', "expected string as parameter" )
 	assert( #line > 0 )
 	--==--
-	local key = line:match( "%[([%w_]+)%]" )
+	local key = line:match( "%[([%u_]+)%]" )
+	assert( type(key) ~= 'nil', "key not found in line: "..tostring(line) )
 	return string.lower( key ) -- use only lowercase inside of module
 end
 
 function File.processKeyLine( line )
 	-- print( "File.processKeyLine", line )
-	assert( type(line)=='string' )
+	assert( type(line)=='string', "expected string as parameter" )
 	assert( #line > 0 )
 	--==--
 
-	-- split up line
-	local raw_key, raw_val = line:match( "([%w_:]+)%s*=%s*(.+)" )
+	-- split up line into key/value
+	local raw_key, raw_val = line:match( "([%u_:]+)%s*=%s*(.-)%s*$" )
 
 	-- split up key parts
 	local keys = {}
 	for k in string.gmatch( raw_key, "([^:]+)") do
-		table.insert( keys, #keys+1, k )
+		tinsert( keys, #keys+1, k )
 	end
+
+	-- trim off quotes, make sure balanced
+	local q1, q2, trim
+	q1, trim, q2 = raw_val:match( "^(['\"]?)(.-)(['\"]?)$" )
+	assert( q1 == q2, "quotes must match" )
 
 	-- process key and value
 	local key_name, key_type = unpack( keys )
@@ -237,14 +296,12 @@ function File.processKeyLine( line )
 	key_type = File.processKeyType( key_type )
 
 	-- get final value
-	if not key_type or type(key_type)~='string' then
-		key_value = File.castTo_string( raw_val )
-
-	else
+	local key_value
+	if key_type and Utils.propertyIn( KEY_TYPES, key_type ) then
 		local method = 'castTo_'..key_type
-		if File[ method ] then
-			key_value = File[method]( raw_val )
-		end
+		key_value = File[method]( trim )
+	else
+		key_value = File.castTo_string( trim )
 	end
 
 	return key_name, key_value
@@ -252,11 +309,12 @@ end
 
 function File.processKeyName( name )
 	-- print( "File.processKeyName", name )
-	assert( type(name)=='string' )
-	assert( #name > 0 )
+	assert( type(name)=='string', "expected string as parameter" )
+	assert( #name > 0, "no length for name" )
 	--==--
 	return string.lower( name ) -- use only lowercase inside of module
 end
+-- allows nil to be passed in
 function File.processKeyType( name )
 	-- print( "File.processKeyType", name )
 	--==--
@@ -267,20 +325,26 @@ function File.processKeyType( name )
 end
 
 
-function File.castTo_bool( value )
-	assert( value=='true' or value == 'false' )
+function File.castTo_boolean( value )
+	assert( type(value)=='string' )
 	--==--
 	if value == 'true' then return true
 	else return false end
 end
+File.castTo_bool = File.castTo_boolean
+
 function File.castTo_file( value )
 	return File.castTo_string( value )
 end
-function File.castTo_int( value )
+function File.castTo_integer( value )
 	assert( type(value)=='string' )
 	--==--
-	return tonumber( value )
+	local num = tonumber( value )
+	assert( type(num) == 'number' )
+	return num
 end
+File.castTo_int = File.castTo_integer
+
 function File.castTo_json( value )
 	assert( type(value)=='string' )
 	--==--
@@ -292,14 +356,16 @@ function File.castTo_path( value )
 	return string.gsub( value, '[/\\]', "." )
 end
 function File.castTo_string( value )
-	assert( type(value)~='nil' or type(value)~='table' )
+	assert( type(value)~='nil' and type(value)~='table' )
 	return tostring( value )
 end
+File.castTo_str = File.castTo_string
 
 
 function File.parseFileLines( lines, options )
 	-- print( "parseFileLines", #lines )
-	assert( options.default_section ~= nil )
+	assert( options, "options parameter expected" )
+	assert( options.default_section, "options table requires 'default_section' entry" )
 	--==--
 
 	local curr_section = options.default_section
@@ -343,94 +409,216 @@ end
 
 
 --====================================================================--
--- Setup DMC Corona Library Config
+--== Setup DMC Corona Library Config
 --====================================================================--
 
--- This is standard code to bootstrap the dmc-corona-library
--- it looks for a configuration file to read
+
+--[[
+This is standard code to bootstrap the dmc-corona-library
+it looks for a configuration file to read
+--]]
 
 
 local DMC_CORONA_CONFIG_FILE = 'dmc_corona.cfg'
 local DMC_CORONA_DEFAULT_SECTION = 'dmc_corona'
 
-local dmc_lib_data, dmc_lib_info
+-- locations of third party libs used by dmc_corona
+local THIRD_LIBS = {}
 
--- no module has yet tried to read in a config file
-if _G.__dmc_corona == nil then
+--- add 'lib/dmc' location
+tinsert( THIRD_LIBS, tconcat( {'lib','dmc_lua'}, '.' ) )
+
+local REQ_STACK = {}
+
+
+local function pushStack( value )
+	-- print( "pre stack (pre):", #REQ_STACK)
+	tinsert( REQ_STACK, value )
+end
+local function popStack()
+	-- print( "pop stack (pre):", #REQ_STACK)
+	if REQ_STACK == 0 then
+		-- print( "nothing ins stack")
+		error( "!!!! nothing in stack" )
+	end
+	return tremove( REQ_STACK )
+end
+
+local wrapError, unwrapError, processError
+
+wrapError = function( stack, message, level )
+	-- we package or unpackage
+	local package = { stack, message, level }
+	return processError( stack, package )
+end
+unwrapError = function( package )
+	return unpack( package )
+end
+processError = function( stack, package )
+	if stack==0 then
+		local stack, message, level = unwrapError( package )
+		return message, level
+	else
+		return package
+	end
+end
+
+
+local function newRequireFunction( module_name )
+	-- print( "dmc_require: ", module_name )
+	assert( type(module_name)=='string', "dmc_require: expected string module name" )
+	--==--
+	local _paths = _G.__dmc_require.paths
+	local _require = _G.__dmc_require.require
+	local lua_paths = Utils.extend( _paths, {} )
+	tinsert( lua_paths, 1, '' ) -- add search at root-level
+
+	local err_tbl = {}
+	local library, err = nil, nil
+	local idx = 1
+
+	pushStack( module_name )
+
+	repeat
+		local mod_path = lua_paths[idx]
+		local path = ( mod_path=='' and mod_path or mod_path..'.' ) .. module_name
+
+		local has_module, result = pcall( _require, path )
+		if has_module then
+			library = result
+
+		elseif type( result )=='table' then
+			-- this is a packaged error from the call-stack
+			-- now we're just trying to show it
+			-- so we have to unwind the call-stack
+
+			err = result
+
+		else
+			-- we just got error from Lua, so we need to handle it
+
+			if sfind( result, "module '.+' not found" ) then
+				-- "module not found"
+				-- pass on this because we could have more places to check
+
+			elseif sfind( result, "error loading module" ) then
+				-- "error loading module"
+				-- we can't proceed with this error, so
+				-- package up to travel back up call-stack
+
+				result="\n\n"..result
+				err = wrapError( #REQ_STACK, result, 2 )
+
+			else
+				-- we have some unknown error
+				err = wrapError( #REQ_STACK, result, 3 )
+			end
+
+		end
+
+		idx=idx+1
+	until err or library or idx > #lua_paths
+
+	popStack()
+
+	if err then
+		error( processError( #REQ_STACK, err ) )
+
+	elseif not library then
+		-- print("not found")
+		local emsg = string.format( "\nThe module '%s' not found in archive:", tostring( module_name) )
+		error( wrapError( #REQ_STACK, debug.traceback( emsg ), 3 ))
+	end
+
+	return library
+end
+
+
+
+-- read in the config file for dmc-corona
+local function readDMCConfiguration()
+	-- print( "readDMCConfiguration" )
+
+	-- check if a module has tried to read config
+	if _G.__dmc_corona ~= nil then return end
+
 	local file_path, config_data
+	local dmc_lib_data
+
 	file_path = system.pathForFile( DMC_CORONA_CONFIG_FILE, system.ResourceDirectory )
 	if file_path ~= nil then
 		config_data = File.readConfigFile( file_path, { default_section=DMC_CORONA_DEFAULT_SECTION } )
 	end
 
-	-- create/store config data
+	-- make sure we have defaults for data areas
 	_G.__dmc_corona = config_data or {}
 	dmc_lib_data = _G.__dmc_corona
-	-- create/setup library default
 	dmc_lib_data.dmc_corona = dmc_lib_data.dmc_corona or {}
-	dmc_lib_info = dmc_lib_data.dmc_corona
 
 end
 
--- fix the way that Corona loads files
--- the package.path/Lua Loaders don't obey
-if _G.__dmc_require == nil then
-	-- setup structure
+
+local function setupDMCRequireStruct()
+	-- print( "setupDMCRequireStruct" )
+	if _G.__dmc_require ~= nil then return end
 	_G.__dmc_require = {
 		paths={},
-		require=_G.require -- original require method
+		require=_G.require, -- orig require method
+		pkg_path = package.path -- orig package path
 	}
+end
 
-	_G.require = function( module_name )
-		-- print( "dmc_require: ", module_name )
-		assert( type(module_name)=='string', "dmc_require: expected string module name" )
-		--==--
-		local resource_path = system.pathForFile( system.ResourceDirectory ) or ""
 
-		local _paths = _G.__dmc_require.paths
-		local _require = _G.__dmc_require.require
-		local lua_paths = Utils.extend( _paths, {} )
-		table.insert( lua_paths, 1, '' ) -- add search at root-level
+local function setupRequireLoading()
+	-- print( "setupRequireLoading" )
+	if _G.__dmc_require ~= nil then return end
 
-		local err_tbl = {}
-		local library = nil
-		local idx = 1
-		repeat
-			local mod_path = lua_paths[idx]
-			local path = ( mod_path=='' and mod_path or mod_path..'.' ) .. module_name
+	setupDMCRequireStruct()
 
-			local has_module, result = pcall( _require, path )
-			if has_module then
-				library = result
-			else
-				if string.find( result, '^error loading module' ) then
-					print( result )
-					error( result, 2 )
-				else
-					table.insert( err_tbl, resource_path..'/'..mod_path )
-					table.insert( err_tbl, result )
-				end
-			end
+	local dmc_corona_info = _G.__dmc_corona.dmc_corona
+	local req_paths = _G.__dmc_require.paths
+	local sys2reqPath = Utils.sysPathToRequirePath
 
-			idx=idx+1
-		until library or idx > #lua_paths
+	local path_info = dmc_corona_info.lua_path or {}
 
-		if not library then
-			table.insert( err_tbl, 1, "module '".. module_name.."' not found in archive:" )
-			-- print( table.concat( err_tbl, '\n' ) )
-			error( table.concat( err_tbl, '\n' ), 2 )
+	-- modify the search paths, also adding 3rd party lib locations
+	for i=1,#path_info do
+		local mod_path, third_path
+		mod_path =  sys2reqPath( path_info[i] )
+		-- print( ">s1", mod_path )
+		tinsert( req_paths, mod_path )
+		for i=1,#THIRD_LIBS do
+			third_path = THIRD_LIBS[i]
+			-- print( ">s2", mod_path..'.'..third_path )
+			tinsert( req_paths, mod_path..'.'..third_path )
 		end
-
-		return library
 	end
+end
+
+
+-- useRequireLoading()
+-- setup alternate require() method
+--
+local function useRequireLoading()
+	-- print( "useRequireLoading" )
+
+	setupRequireLoading() -- must be first
+
+	_G.require=newRequireFunction
 
 end
 
--- enhance lua search path
-if dmc_lib_info.lua_path then
-	local dmc_paths = _G.__dmc_require.paths
-	local path_info = dmc_lib_info.lua_path
-	for i=#path_info, 1, -1 do
-		dmc_paths[i] = Utils.sysPathToRequirePath( path_info[i] )
-	end
+
+-- setupModuleLoadingMethod()
+--
+local function setupModuleLoadingMethod( )
+	-- print( "setupModuleLoadingMethod" )
+	setupRequireLoading() -- must be first
+
+	_G.require=newRequireFunction
 end
+
+
+readDMCConfiguration()
+setupModuleLoadingMethod()
+

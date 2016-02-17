@@ -3,9 +3,6 @@
 -- main.lua
 --
 -----------------------------------------------------------------------------------------
-package.path = string.gsub(system.pathForFile('luarocks/bin/luarocks', system.ResourceDirectory), 'bin/luarocks', '') .. 'share/lua/5.2/?.lua' .. ';' .. package.path
-require("luarocks.loader")
-
 local widget = require('widget')
 local colyseus = require('colyseus')
 
@@ -19,6 +16,9 @@ messageBox.isEditable = false
 
 -- instantiate colyseus client
 local client = colyseus.connect('ws://colyseus-react-example.herokuapp.com/')
+client:on('error', function()
+  messageBox.text = "Couldn't connect to server."
+end)
 
 -- join chat room
 local room = client:join("chat")
@@ -32,8 +32,8 @@ room:on('update', function(newState, patches)
     end
 
   else
-    print('== patched state ==', patches)
 
+    print('== patched state ==', patches)
     for i, patch in pairs(patches) do
       if patch['op'] == 'add' then
         messageBox.text = patch['value'] .. "\n" .. messageBox.text
@@ -46,9 +46,10 @@ end)
 -- submit button
 local submit = widget.newButton({
   top = display.contentHeight-inputHeight,
+  width = display.contentWidth,
   id = "submit",
   label = "Send",
-  labelAlign = "right",
+  labelAlign = "center",
   onEvent = function(e)
     if "ended" == e.phase and input.text ~= "" then
       room:send(input.text)

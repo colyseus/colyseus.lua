@@ -1,16 +1,14 @@
 --====================================================================--
--- dmc_sockets/tcp.lua
+-- dmc_corona/dmc_sockets/tcp.lua
 --
---
--- by David McCuskey
--- Documentation: http://docs.davidmccuskey.com/display/docs/dmc_sockets.lua
+-- Documentation: http://docs.davidmccuskey.com/
 --====================================================================--
 
 --[[
 
 The MIT License (MIT)
 
-Copyright (c) 2014 David McCuskey
+Copyright (c) 2014-2015 David McCuskey
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,43 +33,47 @@ SOFTWARE.
 
 
 --====================================================================--
--- DMC Corona Library : TCP
+--== DMC Corona Library : TCP
 --====================================================================--
 
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "1.1.0"
+local VERSION = "1.3.0"
+
 
 
 --====================================================================--
--- Imports
+--== Imports
 
-local Objects = require 'lua_objects'
+
+local Objects = require 'lib.dmc_lua.lua_objects'
 local socket = require 'socket'
-local Utils = require 'lua_utils'
+local Utils = require 'lib.dmc_lua.lua_utils'
+
 
 
 --====================================================================--
--- Setup, Constants
+--== Setup, Constants
 
--- setup some aliases to make code cleaner
-local inheritsFrom = Objects.inheritsFrom
+
 local ObjectBase = Objects.ObjectBase
 
+local sfind = string.find
+local ssub = string.sub
 local tconcat = table.concat
+local type = type
 
 local LOCAL_DEBUG = false
 
 
 
 --====================================================================--
--- TCP Socket Class
+--== TCP Socket Class
 --====================================================================--
 
 
-local TCPSocket = inheritsFrom( ObjectBase )
-TCPSocket.NAME = "TCP Socket"
+local TCPSocket = newClass( ObjectBase, { name="TCP Socket" } )
 
 --== Class Constants
 
@@ -99,18 +101,18 @@ TCPSocket.READ = 'read_event'
 TCPSocket.WRITE = 'write_event'
 
 
---====================================================================--
---== Start: Setup DMC Objects
+--======================================================--
+-- Start: Setup Lua Objects
 
-function TCPSocket:_init( params )
-	-- print( "TCPSocket:_init" )
+function TCPSocket:__init__( params )
+	-- print( "TCPSocket:__init__" )
 	params = params or {}
-	self:superCall( "_init", params )
+	self:superCall( '__init__', params )
 	--==--
 
-	if not self.is_intermediate then
-		assert( params.master, "TCP Socket requires Master")
-	end
+	if self.is_class then return end
+
+	assert( params.master, "TCP Socket requires Master")
 
 	--== Create Properties ==--
 
@@ -130,21 +132,23 @@ function TCPSocket:_init( params )
 end
 
 
-function TCPSocket:_undoInitComplete()
-	-- print( "TCPSocket:_undoInitComplete" )
+function TCPSocket:__undoInitComplete__()
+	-- print( "TCPSocket:__undoInitComplete__" )
 
 	self:_removeSocket()
 
 	--==--
-	self:superCall( "_undoInitComplete" )
+	self:superCall( '__undoInitComplete__' )
 end
 
---== END: Setup DMC Objects
---====================================================================--
+-- END: Setup Lua Objects
+--======================================================--
+
 
 
 --====================================================================--
 --== Public Methods
+
 
 function TCPSocket.__getters:status()
 	return self._status
@@ -200,6 +204,8 @@ function TCPSocket:connect( host, port, params )
 	if success then
 		self._status = TCPSocket.CONNECTED
 		self._socket:settimeout(0)
+		self._socket:setoption( 'keepalive', true )
+		self._socket:setoption( 'tcp-nodelay', true )
 
 		self._master:_connect( self )
 
@@ -243,25 +249,25 @@ function TCPSocket:receive( ... )
 
 	local data
 
-	if type( args ) == 'string' and args == '*a' then
+	if type( args )=='string' and args == '*a' then
 		data = buffer
 		self._buffer = ""
 
-	elseif type( args ) == 'number' and #buffer >= args then
-		data = string.sub( buffer, 1, args )
-		self._buffer = string.sub( buffer, args+1 )
+	elseif type( args )=='number' and #buffer >= args then
+		data = ssub( buffer, 1, args )
+		self._buffer = ssub( buffer, args+1 )
 
-	elseif type( args ) == 'string' and args == '*l' then
+	elseif type( args )=='string' and args == '*l' then
 		local ret = '\r\n'
 		local lret = #ret
-		local beg, _ = string.find( buffer, ret )
+		local beg, _ = sfind( buffer, ret )
 
 		if beg == 1 then
 			data = ""
-			self._buffer = string.sub( buffer, beg+lret )
+			self._buffer = ssub( buffer, beg+lret )
 		elseif beg then
-			data = string.sub( buffer, 1, beg )
-			self._buffer = string.sub( buffer, beg+lret )
+			data = ssub( buffer, 1, beg )
+			self._buffer = ssub( buffer, beg+lret )
 		end
 
 	end
@@ -299,8 +305,10 @@ function TCPSocket:close()
 end
 
 
+
 --====================================================================--
 --== Private Methods
+
 
 function TCPSocket:_createSocket( params )
 	-- print( 'TCPSocket:_createSocket' )
@@ -315,6 +323,8 @@ function TCPSocket:_createSocket( params )
 	self._status = TCPSocket.NOT_CONNECTED
 
 	self._socket:settimeout( params.timeout )
+	self._socket:setoption( 'keepalive', true )
+	self._socket:setoption( 'tcp-nodelay', true )
 
 end
 
@@ -414,8 +424,10 @@ function TCPSocket:_writeStatus( status )
 end
 
 
+
 --====================================================================--
 --== Event Handlers
+
 
 -- none
 

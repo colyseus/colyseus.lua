@@ -1,38 +1,39 @@
 --====================================================================--
--- handshake.lua (part of dmc_websockets)
+-- dmc_corona/dmc_websockets/handshake.lua
 --
---
--- by David McCuskey
--- Documentation: http://docs.davidmccuskey.com/display/docs/dmc_websockets.lua
+-- Documentation: http://docs.davidmccuskey.com/
 --====================================================================--
 
 --[[
 
-Copyright (C) 2014 David McCuskey. All Rights Reserved.
+The MIT License (MIT)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in the
-Software without restriction, including without limitation the rights to use, copy,
-modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-and to permit persons to whom the Software is furnished to do so, subject to the
-following conditions:
+Copyright (C) 2014-2015 David McCuskey. All Rights Reserved.
 
-The above copyright notice and this permission notice shall be included in all copies
-or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 --]]
 
 
 
 --====================================================================--
--- DMC Corona Library : WebSocket Handshake
+--== DMC Corona Library : DMC WebSockets Handshake
 --====================================================================--
 
 
@@ -48,33 +49,46 @@ WebSocket support adapted from:
 
 -- Semantic Versioning Specification: http://semver.org/
 
-local VERSION = "1.1.2"
+local VERSION = "1.2.0"
+
 
 
 --====================================================================--
--- Imports
+--== Imports
+
 
 local mime = require 'mime'
-local Patch = require( 'lua_patch' )( 'string-format' )
-local SHA1 = require 'libs.sha1'
+local Patch = require 'lib.dmc_lua.lua_patch'
+local SHA1 = require 'lib.sha1'
+
 
 
 --====================================================================--
--- Setup, Constants
+--== Setup, Constants
 
+
+Patch.addPatch( 'string-format' )
+
+local assert = assert
+local ipairs = ipairs
 local mbase64_encode = mime.b64
 local mrandom = math.random
 local schar = string.char
+local slower = string.lower
+local smatch = string.match
 local tconcat = table.concat
 local tinsert = table.insert
+local type = type
 
 local HANDSHAKE_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 
 local LOCAL_DEBUG = false
 
 
+
 --====================================================================--
--- Support Functions
+--== Support Functions
+
 
 local function generateKey( params )
 	local key = schar(
@@ -97,9 +111,9 @@ local function createHttpRequest( params )
 	local proto_header, key
 	local req_t
 
-	if type( protos ) == "string" then
+	if type(protos) == 'string' then
 		proto_header = protos
-	elseif type( protos ) == "table" then
+	elseif type(protos) == 'table' then
 		proto_header = tconcat( protos, "," )
 	end
 
@@ -143,13 +157,13 @@ local function createHttpResponseHash( response )
 	--==--
 	local resp_hash = {}
 	for i,v in ipairs( response ) do
-		local key, value = string.match( v, '^([%w-%p]+): (.+)$' )
+		local key, value = smatch( v, '^([%w-%p]+): (.+)$' )
 		if key and value then
-			key = string.lower( key )
+			key = slower( key )
 			if key == 'sec-websocket-accept' then
 				resp_hash[ key ] = value
 			else
-				resp_hash[ key ] = string.lower( value )
+				resp_hash[ key ] = slower( value )
 			end
 		end
 	end
@@ -173,7 +187,7 @@ local function checkHttpResponse( response, key )
 	--==--
 
 	-- check for http result code - 101
-	if string.match( response[1], '^HTTP/1.1%s+101' ) == nil then
+	if smatch( response[1], '^HTTP/1.1%s+101' ) == nil then
 		return false
 	end
 
@@ -190,6 +204,12 @@ local function checkHttpResponse( response, key )
 
 	return true
 end
+
+
+
+--====================================================================--
+--== Module Facade
+--====================================================================--
 
 
 return {
