@@ -1,7 +1,7 @@
 # version=$(git tag -l | tail -1)
 
 version="0.1.4"
-rev="1" # rev="1"
+rev="2" # rev="1"
 
 name="colyseus-$version-$rev"
 

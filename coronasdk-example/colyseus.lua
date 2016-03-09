@@ -61,7 +61,7 @@ function Colyseus:send(data)
   else
     -- WebSocket not connected.
     -- Enqueue data to be sent when readyState == OPEN
-    table.insert(self._enqueuedCalls, {'send', data})
+    table.insert(self._enqueuedCalls, {'send', {data}})
   end
 end
 
