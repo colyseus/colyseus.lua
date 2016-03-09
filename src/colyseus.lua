@@ -53,9 +53,16 @@ function Colyseus:close()
 end
 
 function Colyseus:send(data)
-  self.ws:send( msgpack.pack(data), {
-    type = WebSocket.BINARY
-  } )
+  if self.ws.readyState == WebSocket.ESTABLISHED then -- same as WebSocket.OPEN in JavaScript
+    self.ws:send( msgpack.pack(data), {
+      type = WebSocket.BINARY
+    } )
+
+  else
+    -- WebSocket not connected.
+    -- Enqueue data to be sent when readyState == OPEN
+    table.insert(self._enqueuedCalls, {'send', data})
+  end
 end
 
 function Colyseus:join(...)
@@ -68,14 +75,7 @@ function Colyseus:join(...)
     self.rooms[ roomName ] = room.create(self, roomName)
   end
 
-  if self.ws.readyState == WebSocket.ESTABLISHED then -- same as WebSocket.OPEN in JavaScript
-    self:send({ protocol.JOIN_ROOM, roomName, options or {} })
-
-  else
-    -- WebSocket not connected.
-    -- Enqueue it to be called when readyState == OPEN
-    table.insert(self._enqueuedCalls, {'join', args})
-  end
+  self:send({ protocol.JOIN_ROOM, roomName, options or {} })
 
   return self.rooms[ roomName ]
 end
