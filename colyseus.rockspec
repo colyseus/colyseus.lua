@@ -8,7 +8,7 @@ source = {
 description = {
   summary = "LUA/CoronaSDK client for Colyseus MMO Game Server",
   detailed = "Provides async client for Colyseus MMO Game Server",
-  homepage = "https://github.com/gamestdio/colyseus",
+  homepage = "http://gamestd.io/colyseus",
   license = "MIT/X11"
 }
 

@@ -1,7 +1,7 @@
 # colyseus.lua [![Join the chat at https://gitter.im/gamestdio/colyseus](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/gamestdio/colyseus?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 CoronaSDK/LUA client for [colyseus](https://github.com/gamestdio/colyseus) - a
-Minimalistic MMO Game Server.
+Minimalist Multiplayer Game Server.
 
 ## Usage
 
@@ -31,7 +31,7 @@ room:on('error', function()
 end)
 
 room:on('leave', function()
-  print(client.id, "leaved", roomName)
+  print(client.id, "left", roomName)
 end)
 
 room:on('data', function(data)
